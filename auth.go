@@ -176,15 +176,30 @@ func (a *Auth) ProtectWithRBAC(next http.Handler) http.Handler {
 	})
 }
 
-func (a *Auth) verifyToken(cookie string) (int64, error) {
+func (a *Auth) VerifyToken(token string) (int64, error) {
 	result, err := a.cacheClient.Do(
 		"GET",
-		cookie,
+		token,
 	).Int64()
 	if err != nil {
 		return -1, err
 	}
 	return result, nil
+}
+
+func (a *Auth) GetUserByToken(token string) (*User, error) {
+	userId, err := a.VerifyToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	user, err := FindUser(map[string]interface{}{
+		"id": userId,
+	}, nil)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+	return user, nil
 }
 
 func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*User, error) {
@@ -205,7 +220,7 @@ func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*User, error) {
 		token = headers[1]
 	}
 
-	userID, err := a.verifyToken(token)
+	userID, err := a.VerifyToken(token)
 	if err != nil {
 		return nil, ErrValidateCookie
 	}
