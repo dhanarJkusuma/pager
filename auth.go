@@ -66,8 +66,11 @@ func (a *Auth) Authenticate(params LoginParams) (*User, error) {
 	case LoginEmailUsername:
 		loggedUser, err = FindUserByUsernameOrEmail(params.Identifier, nil)
 	}
-	if err != nil {
+	if loggedUser == nil {
 		return nil, ErrInvalidUserLogin
+	}
+	if err != nil {
+		return nil, err
 	}
 
 	if !a.passwordStrategy.ValidatePassword(loggedUser.Password, params.Password) {
