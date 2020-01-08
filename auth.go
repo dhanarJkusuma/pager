@@ -129,6 +129,25 @@ func (a *Auth) SignIn(params LoginParams) (*User, string, error) {
 	return loggedUser, token, nil
 }
 
+func (a *Auth) Logout(request *http.Request) error {
+	var err error
+	var user *User
+	user = GetUserLogin(request)
+	if user == nil {
+		return ErrInvalidUserLogin
+	}
+
+	token := request.Header.Get(authorization)
+	err = a.cacheClient.Do(
+		"DEL",
+		token,
+	).Err()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (a *Auth) Register(user *User) error {
 	user.Password = a.passwordStrategy.HashPassword(user.Password)
 	return user.CreateUser()
