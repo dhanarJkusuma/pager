@@ -184,7 +184,7 @@ func (m *Migration) Run(migration RunMigration) error {
 		return ErrMigrationAlreadyExist
 	}
 	err = migration.Run(ptx)
-	if err != nil {
+	if err == nil {
 		errRecordMigration := insertMigration(ptx, migrationType.Elem().Name())
 		if errRecordMigration != nil {
 			log.Printf("%s : %s", ErrMigrationHistory.Error(), errRecordMigration)
