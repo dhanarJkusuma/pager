@@ -1396,7 +1396,7 @@ func checkExistMigration(ptx *PagerTx, migrationType string) (bool, error) {
 	}{}
 	selectQuery := `SELECT migration_key FROM rbac_migration WHERE migration_key = ? LIMIT 1`
 	result := ptx.dbTx.QueryRow(selectQuery, migrationType)
-	err := result.Scan(&rawResult)
+	err := result.Scan(&rawResult.MigrationKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
