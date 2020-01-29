@@ -111,6 +111,30 @@ func (a *Auth) SignInWithCookie(w http.ResponseWriter, params LoginParams) (*Use
 	return loggedUser, nil
 }
 
+func (a *Auth) ClearSession(w http.ResponseWriter, r *http.Request) error {
+	cookieData, err := r.Cookie(a.sessionName)
+	if err != nil {
+		return ErrInvalidCookie
+	}
+	cookie := cookieData.Value
+	err = a.cacheClient.Do(
+		"DEL",
+		cookie,
+	).Err()
+	if err != nil {
+		return err
+	}
+
+	// clear cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:   a.sessionName,
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	})
+	return nil
+}
+
 func (a *Auth) SignIn(params LoginParams) (*User, string, error) {
 	loggedUser, err := a.Authenticate(params)
 	if err != nil {
