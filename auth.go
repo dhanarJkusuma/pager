@@ -93,7 +93,7 @@ func (a *Auth) SignInWithCookie(w http.ResponseWriter, params LoginParams) (*Use
 
 	hashCookie := a.tokenStrategy.GenerateToken()
 	http.SetCookie(w, &http.Cookie{
-		Name:    a.sessionName,
+		Name:    a.SessionName,
 		Value:   hashCookie,
 		Path:    "/",
 		Expires: time.Now().Add(time.Duration(a.expiredInSeconds)),
@@ -113,7 +113,7 @@ func (a *Auth) SignInWithCookie(w http.ResponseWriter, params LoginParams) (*Use
 }
 
 func (a *Auth) ClearSession(w http.ResponseWriter, r *http.Request) error {
-	cookieData, err := r.Cookie(a.sessionName)
+	cookieData, err := r.Cookie(a.SessionName)
 	if err != nil {
 		return ErrInvalidCookie
 	}
@@ -128,7 +128,7 @@ func (a *Auth) ClearSession(w http.ResponseWriter, r *http.Request) error {
 
 	// clear cookie
 	http.SetCookie(w, &http.Cookie{
-		Name:   a.sessionName,
+		Name:   a.SessionName,
 		Value:  "",
 		Path:   "/",
 		MaxAge: -1,
@@ -258,7 +258,7 @@ func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*User, error) {
 	var token string
 	switch strategy {
 	case CookieBasedAuth:
-		cookieData, err := r.Cookie(a.sessionName)
+		cookieData, err := r.Cookie(a.SessionName)
 		if err != nil {
 			return nil, ErrInvalidCookie
 		}
