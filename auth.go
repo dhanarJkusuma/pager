@@ -183,6 +183,9 @@ func (a *Auth) ProtectRoute(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, err := a.getUserPrinciple(r, CookieBasedAuth)
 		if err != nil {
+			// clear session
+			a.ClearSession(w, r)
+
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
