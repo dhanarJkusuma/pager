@@ -43,6 +43,7 @@ type Pager struct {
 type SessionOptions struct {
 	LoginMethod      LoginMethod
 	SessionName      string
+	Origin           string
 	ExpiredInSeconds int64
 }
 type Options struct {
@@ -93,6 +94,7 @@ func (p *pagerBuilder) BuildPager() *Pager {
 	rbac := &Pager{}
 	authModule := &Auth{
 		sessionName:      p.pagerOptions.Session.SessionName,
+		origin:           p.pagerOptions.Session.Origin,
 		expiredInSeconds: p.pagerOptions.Session.ExpiredInSeconds,
 		loginMethod:      p.pagerOptions.Session.LoginMethod,
 		cacheClient:      p.pagerOptions.CacheClient,

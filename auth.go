@@ -43,6 +43,7 @@ const (
 type Auth struct {
 	cacheClient      *redis.Client
 	loginMethod      LoginMethod
+	origin           string
 	sessionName      string
 	expiredInSeconds int64
 
@@ -93,6 +94,7 @@ func (a *Auth) SignInWithCookie(w http.ResponseWriter, params LoginParams) (*Use
 	http.SetCookie(w, &http.Cookie{
 		Name:    a.sessionName,
 		Value:   hashCookie,
+		Domain:  a.origin,
 		Expires: time.Now().Add(time.Duration(a.expiredInSeconds)),
 	})
 
