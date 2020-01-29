@@ -94,7 +94,7 @@ func (a *Auth) SignInWithCookie(w http.ResponseWriter, params LoginParams) (*Use
 	http.SetCookie(w, &http.Cookie{
 		Name:    a.sessionName,
 		Value:   hashCookie,
-		Domain:  a.origin,
+		Path:    "/",
 		Expires: time.Now().Add(time.Duration(a.expiredInSeconds)),
 	})
 
