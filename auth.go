@@ -41,10 +41,11 @@ const (
 )
 
 type Auth struct {
+	SessionName string
+
 	cacheClient      *redis.Client
 	loginMethod      LoginMethod
 	origin           string
-	sessionName      string
 	expiredInSeconds int64
 
 	tokenStrategy    TokenGenerator
