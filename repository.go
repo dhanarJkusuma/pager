@@ -1391,11 +1391,20 @@ func GetGroupWithContext(ctx context.Context, name string, ptx *PagerTx) (*Group
 
 // Migration Repository
 func checkExistMigration(ptx *PagerTx, migrationType string) (bool, error) {
+	var db dbContract
+	if ptx == nil {
+		db = dbConnection
+	} else {
+		if ptx.dbTx == nil {
+			return false, ErrTxWithNoBegin
+		}
+		db = ptx.dbTx
+	}
 	rawResult := struct {
 		MigrationKey string `db:"migration_key"`
 	}{}
 	selectQuery := `SELECT migration_key FROM rbac_migration WHERE migration_key = ? LIMIT 1`
-	result := ptx.dbTx.QueryRow(selectQuery, migrationType)
+	result := db.QueryRow(selectQuery, migrationType)
 	err := result.Scan(&rawResult.MigrationKey)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -1407,8 +1416,17 @@ func checkExistMigration(ptx *PagerTx, migrationType string) (bool, error) {
 }
 
 func insertMigration(ptx *PagerTx, migrationType string) error {
+	var db dbContract
+	if ptx == nil {
+		db = dbConnection
+	} else {
+		if ptx.dbTx == nil {
+			return ErrTxWithNoBegin
+		}
+		db = ptx.dbTx
+	}
 	insertQuery := `INSERT INTO rbac_migration(migration_key) VALUES (?)`
-	_, err := ptx.dbTx.Exec(
+	_, err := db.Exec(
 		insertQuery,
 		migrationType,
 	)

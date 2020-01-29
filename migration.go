@@ -93,6 +93,13 @@ func NewMigration(opts MigrationOptions) (*Migration, error) {
 }
 
 func (m *Migration) InitDBMigration() error {
+	isExist, err := checkExistMigration(nil, "InitDBMigration")
+	if err != nil {
+		return err
+	}
+	if isExist {
+		return nil
+	}
 	rawMigrationQuery, err := openMigration(fmt.Sprintf("%s/migration/%s", getCurrentPath(), mysqlMigrationPath))
 	if err != nil {
 		return errors.New(fmt.Sprintf(ErrMigration, "failed to open migration file"))
@@ -116,6 +123,12 @@ func (m *Migration) InitDBMigration() error {
 		m.ClearMigration()
 		return errors.New(fmt.Sprintf(ErrMigration, "failed to execute query"))
 	}
+	errRecordMigration := insertMigration(nil, "InitDBMigration")
+	if errRecordMigration != nil {
+		log.Printf("%s : %s", ErrMigrationHistory.Error(), errRecordMigration)
+		return ErrMigrationHistory
+	}
+
 	return nil
 }
 
