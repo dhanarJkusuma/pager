@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/dhanarJkusuma/pager"
 )
 
@@ -16,6 +18,9 @@ type User struct {
 	Email    string `db:"email" json:"email"`
 	Password string `db:"password" json:"-"`
 	Active   bool   `db:"active" json:"active"`
+
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 const insertUserQuery = `
@@ -47,7 +52,7 @@ func (u *User) CreateUser() error {
 }
 
 // CreateUserWithContext function will create a new record of user entity with context
-func (u *User) CreateUserWithContext(ctx context.Context) error {
+func (u *User) CreateUserContext(ctx context.Context) error {
 	if u.DBContract == nil {
 		return pager.ErrNoSchema
 	}
@@ -107,7 +112,7 @@ func (u *User) Save() error {
 // Save function will save updated user entity with context
 // if user record already exist in the database, it will be updated
 // otherwise it will create a new one
-func (u *User) SaveWithContext(ctx context.Context) error {
+func (u *User) SaveContext(ctx context.Context) error {
 	if u.DBContract == nil {
 		return pager.ErrNoSchema
 	}
@@ -152,7 +157,7 @@ func (u *User) Delete() error {
 
 // Delete function will save delete user entity with specific ID and context
 // if user has no ID, than error will be returned
-func (u *User) DeleteWithContext(ctx context.Context) error {
+func (u *User) DeleteContext(ctx context.Context) error {
 	if u.DBContract == nil {
 		return pager.ErrNoSchema
 	}
@@ -179,7 +184,7 @@ const getAccessQuery = `
 `
 
 // CanAccess function will return bool that represent this user is eligible to access the resource path or not
-// This function will check the user permission database
+// This function will check the user permission record
 func (u *User) CanAccess(method, path string) (bool, error) {
 	if u.DBContract == nil {
 		return false, pager.ErrNoSchema
@@ -195,7 +200,7 @@ func (u *User) CanAccess(method, path string) (bool, error) {
 }
 
 // CanAccessContext function will return bool that represent this user is eligible to access the resource path or not
-// This function will check the user permission database with specific context
+// This function will check the user permission record with specific context
 func (u *User) CanAccessContext(ctx context.Context, method, path string) (bool, error) {
 	if u.DBContract == nil {
 		return false, pager.ErrNoSchema
@@ -222,8 +227,8 @@ const getUserPermissionQuery = `
 	) AS is_exist
 `
 
-// CanAccess function will return bool that represent this user is eligible to access the resource path or not
-// This function will check the user permission database
+// HasPermission function will return bool that represent this user has permission or not
+// This function will check the user permission record by user and permissionName
 func (u *User) HasPermission(permissionName string) (bool, error) {
 	if u.DBContract == nil {
 		return false, pager.ErrNoSchema
@@ -238,62 +243,61 @@ func (u *User) HasPermission(permissionName string) (bool, error) {
 	return permissionRecord.IsExist, nil
 }
 
+// HasPermissionContext function will return bool that represent this user has specific permission or not
+// This function will check the user permission record by user, permissionName and context
 func (u *User) HasPermissionContext(ctx context.Context, permissionName string) (bool, error) {
 	if u.DBContract == nil {
 		return false, pager.ErrNoSchema
 	}
 
-	rowData := struct {
-		count int64 `db:"count"`
-	}{}
-
+	var permissionRecord existRecord
 	result := u.DBContract.QueryRowContext(ctx, getUserPermissionQuery, u.ID, permissionName)
-	err := result.Scan(&rowData.count)
+	err := result.Scan(&permissionRecord.IsExist)
 	if err != nil {
 		return false, err
 	}
-	return rowData.count > 0, nil
+	return permissionRecord.IsExist, nil
 }
 
 const getUserRoleQuery = `
-	SELECT 
-		COUNT(1) as count
-	FROM rbac_user_role ur 
-	JOIN rbac_role r ON ur.role_id = r.id 
-	WHERE ur.user_id = ? AND r.name = ?
+	SELECT EXISTS(
+		SELECT 
+			COUNT(1) as count
+		FROM rbac_user_role ur 
+		JOIN rbac_role r ON ur.role_id = r.id 
+		WHERE ur.user_id = ? AND r.name = ? 
+	) AS is_exist
 `
 
+// HasRole function will return bool that represent this user has specific roleName or not
+// This function will check the user role record by user and roleName
 func (u *User) HasRole(roleName string) (bool, error) {
 	if u.DBContract == nil {
 		return false, pager.ErrNoSchema
 	}
 
-	rowData := struct {
-		count int64 `db:"count"`
-	}{}
-
+	var roleRecord existRecord
 	result := u.DBContract.QueryRow(getUserRoleQuery, u.ID, roleName)
-	err := result.Scan(&rowData.count)
+	err := result.Scan(&roleRecord.IsExist)
 	if err != nil {
 		return false, err
 	}
-	return rowData.count > 0, nil
+	return roleRecord.IsExist, nil
 }
 
+// HasRoleContext function will return bool that represent this user has specific roleName or not
+// This function will check the user role record by user, roleName and context
 func (u *User) HasRoleContext(ctx context.Context, roleName string) (bool, error) {
 	if u.DBContract == nil {
 		return false, pager.ErrNoSchema
 	}
-	rowData := struct {
-		count int64 `db:"count"`
-	}{}
-
+	var roleRecord existRecord
 	result := u.DBContract.QueryRowContext(ctx, getUserRoleQuery, u.ID, roleName)
-	err := result.Scan(&rowData.count)
+	err := result.Scan(&roleRecord.IsExist)
 	if err != nil {
 		return false, err
 	}
-	return rowData.count > 0, nil
+	return roleRecord.IsExist, nil
 }
 
 const getUserRolesQuery = `
@@ -303,10 +307,13 @@ const getUserRolesQuery = `
 		r.description,
 		r.created_at,
 		r.updated_at
-	FROM rbac_user_role ur
-	JOIN rbac_role r WHERE ur.user_id = ?
+	FROM rbac_role r
+	JOIN rbac_user_role ur ON ur.role_id = r.id 
+	WHERE ur.user_id = ?
 `
 
+// GetRoles function will return roles by this user ID
+// This function will check the user role record by this specific userID
 func (u *User) GetRoles() ([]Role, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -334,6 +341,8 @@ func (u *User) GetRoles() ([]Role, error) {
 	return roles, nil
 }
 
+// GetRolesContext function will return roles by this user ID and context
+// This function will check the user role record by this specific userID and context
 func (u *User) GetRolesContext(ctx context.Context) ([]Role, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -359,51 +368,96 @@ func (u *User) GetRolesContext(ctx context.Context) ([]Role, error) {
 	return roles, nil
 }
 
-const fetchUserByEmail = `
-	SELECT 
-		id, 
-		email, 
-		username, 
-		password, 
-		active 
-	FROM rbac_user WHERE email = ?
+const getUserPermissionsQuery = `
+	SELECT
+		p.id,
+		p.name,
+		p.method,
+		p.route,
+		p.description,
+		p.created_at,
+		p.updated_at
+	FROM rbac_permission p 
+	JOIN rbac_role_permission pr ON pr.permission_id = p.id
+	JOIN rbac_user_role ru ON ru.role_id = pr.role_id
+	WHERE ru.user_id = ?
 `
 
-func (u *User) GetUser(email string) (*User, error) {
+// GetPermissions function will return permissions by this user ID
+// This function will check the user permission record by specific userID
+func (u *User) GetPermissions() ([]Permission, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
 	}
 
-	var user = new(User)
-	result := u.DBContract.QueryRow(fetchUserByEmail, email)
-	err := result.Scan(&user.ID, &user.Email, &user.Username, &user.Password, &user.Active)
+	permissions := make([]Permission, 0)
+	result, err := u.DBContract.Query(getUserPermissionsQuery, u.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil
+			return permissions, nil
 		}
 		return nil, err
 	}
-	user.DBContract = u.DBContract
-	return user, nil
+
+	var permission Permission
+	permission.DBContract = u.DBContract
+	for result.Next() {
+		err = result.Scan(
+			&permission.ID,
+			&permission.Name,
+			&permission.Method,
+			&permission.Route,
+			&permission.Description,
+			&permission.Description,
+			&permission.CreatedAt,
+			&permission.UpdatedAt,
+		)
+		if err == nil {
+			permissions = append(permissions, permission)
+		}
+		return nil, err
+	}
+	return permissions, nil
 }
 
-func (u *User) GetUserContext(ctx context.Context, email string) (*User, error) {
+// GetPermissionsContext function will return permissions by this user ID and specific context
+// This function will check the user permission record by this specific userID
+func (u *User) GetPermissionsContext(ctx context.Context) ([]Permission, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
 	}
 
-	var user = new(User)
-	result := u.DBContract.QueryRowContext(ctx, fetchUserByEmail, email)
-	err := result.Scan(&user.ID, &user.Email, &user.Username, &user.Password, &user.Active)
+	permissions := make([]Permission, 0)
+	result, err := u.DBContract.QueryContext(ctx, getUserPermissionsQuery, u.ID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil
+			return permissions, nil
 		}
 		return nil, err
 	}
-	user.DBContract = u.DBContract
-	return user, nil
+
+	var permission Permission
+	permission.DBContract = u.DBContract
+	for result.Next() {
+		err = result.Scan(
+			&permission.ID,
+			&permission.Name,
+			&permission.Method,
+			&permission.Route,
+			&permission.Description,
+			&permission.Description,
+			&permission.CreatedAt,
+			&permission.UpdatedAt,
+		)
+		if err == nil {
+			permissions = append(permissions, permission)
+		}
+		return nil, err
+	}
+	return permissions, nil
 }
+
+/* Fetcher */
 
 const fetchUserByUsernameOrEmail = `
 	SELECT 
@@ -411,10 +465,14 @@ const fetchUserByUsernameOrEmail = `
 		email, 
 		username, 
 		password, 
-		active 
-	FROM rbac_user WHERE email = ? OR username = ?
+		active,
+		created_at,
+		updated_at
+	FROM rbac_user WHERE email = ? OR username = ? LIMIT 1
 `
 
+// FindUserByUsernameOrEmail function will return existing user record by username or email
+// This function will select data from user record by username or email column
 func (u *User) FindUserByUsernameOrEmail(params string) (*User, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -422,7 +480,15 @@ func (u *User) FindUserByUsernameOrEmail(params string) (*User, error) {
 
 	var user = new(User)
 	result := u.DBContract.QueryRow(fetchUserByUsernameOrEmail, params, params)
-	err := result.Scan(&user.ID, &user.Email, &user.Username, &user.Password, &user.Active)
+	err := result.Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.Password,
+		&user.Active,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -433,6 +499,8 @@ func (u *User) FindUserByUsernameOrEmail(params string) (*User, error) {
 	return user, nil
 }
 
+// FindUserByUsernameOrEmail function will return existing user record by username or email with specific context
+// This function will select data from user record by username or email column with specific context
 func (u *User) FindUserByUsernameOrEmailContext(ctx context.Context, params string) (*User, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -440,7 +508,15 @@ func (u *User) FindUserByUsernameOrEmailContext(ctx context.Context, params stri
 
 	var user = new(User)
 	result := u.DBContract.QueryRowContext(ctx, fetchUserByUsernameOrEmail, params, params)
-	err := result.Scan(&user.ID, &user.Email, &user.Username, &user.Password, &user.Active)
+	err := result.Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.Password,
+		&user.Active,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -457,9 +533,14 @@ const fetchDynamicUserParams = `
 			email, 
 			username, 
 			password, 
-			active FROM rbac_user WHERE 
+			active,
+			created_at,
+			updated_at
+		FROM rbac_user WHERE 
 `
 
+// FindUser function will return existing user record by given parameters
+// This function will select data from user record by given parameters
 func (u *User) FindUser(params map[string]interface{}) (*User, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -485,7 +566,15 @@ func (u *User) FindUser(params map[string]interface{}) (*User, error) {
 
 	query += " LIMIT 1"
 	result = u.DBContract.QueryRow(query, values...)
-	err := result.Scan(&user.ID, &user.Email, &user.Username, &user.Password, &user.Active)
+	err := result.Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.Password,
+		&user.Active,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -494,9 +583,10 @@ func (u *User) FindUser(params map[string]interface{}) (*User, error) {
 	}
 	user.DBContract = u.DBContract
 	return user, nil
-
 }
 
+// FindUser function will return existing user record by given parameters and specific context
+// This function will select data from user record by given parameters with specific context
 func (u *User) FindUserContext(ctx context.Context, params map[string]interface{}) (*User, error) {
 	if u.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -522,7 +612,15 @@ func (u *User) FindUserContext(ctx context.Context, params map[string]interface{
 
 	query += " LIMIT 1"
 	result = u.DBContract.QueryRowContext(ctx, query, values...)
-	err := result.Scan(&user.ID, &user.Email, &user.Username, &user.Password, &user.Active)
+	err := result.Scan(
+		&user.ID,
+		&user.Email,
+		&user.Username,
+		&user.Password,
+		&user.Active,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -531,5 +629,4 @@ func (u *User) FindUserContext(ctx context.Context, params map[string]interface{
 	}
 	user.DBContract = u.DBContract
 	return user, nil
-
 }

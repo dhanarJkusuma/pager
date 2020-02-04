@@ -4,16 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"github.com/dhanarJkusuma/pager"
+	"time"
 )
 
 // Permission Repository
 type Permission struct {
 	Entity
-	ID          int64  `db:"id"`
-	Name        string `db:"name"`
-	Method      string `db:"method"`
-	Route       string `db:"route"`
-	Description string `db:"description"`
+
+	ID          int64  `db:"id" json:"id"`
+	Name        string `db:"name" json:"name"`
+	Method      string `db:"method" json:"method"`
+	Route       string `db:"route" json:"route"`
+	Description string `db:"description" json:"description"`
+
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 const insertPermissionQuery = `
