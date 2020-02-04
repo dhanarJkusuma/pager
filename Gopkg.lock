@@ -18,6 +18,14 @@
   version = "v6.15.6"
 
 [[projects]]
+  digest = "1:a3af33fd30536d9c5a7b6ad542390919e57c1125097a194c7b3d9904109a0611"
+  name = "github.com/go-sql-driver/mysql"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "17ef3dd9d98b69acec3e85878995ada9533a9370"
+  version = "v1.5.0"
+
+[[projects]]
   digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
   name = "github.com/satori/go.uuid"
   packages = ["."]
@@ -41,6 +49,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/go-redis/redis",
+    "github.com/go-sql-driver/mysql",
     "github.com/satori/go.uuid",
     "golang.org/x/crypto/bcrypt",
   ]

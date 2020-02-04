@@ -2,6 +2,9 @@ package pager
 
 import (
 	"database/sql"
+	"errors"
+	"github.com/dhanarJkusuma/pager/migration"
+	"github.com/dhanarJkusuma/pager/schema"
 	"github.com/go-redis/redis"
 	"log"
 	"sync"
@@ -13,31 +16,20 @@ type AuthManager interface {
 
 // Constants for Error Messaging
 const (
-	ErrMigration       = "error while migrating rbac-database, reason = %s"
-	ErrDialectNotFound = "invalid dialect"
+	ErrMigration = "error while migrating rbac-database, reason = %s"
 )
 
-const (
-	mysqlMigrationPath       = "mysql_migration.sql"
-	revertMysqlMigrationPath = "mysql_cleanup_migration.sql"
-)
-
-// Constants for TableName
-const (
-	userTable           = "rbac_user"
-	permissionTable     = "rbac_permission"
-	roleTable           = "rbac_role"
-	groupTable          = "rbac_group"
-	rolePermissionTable = "rbac_role_permission"
-	userRoleTable       = "rbac_user_role"
-	userGroupTable      = "rbac_user_group"
-	migrationTable      = "rbac_migration"
+var (
+	ErrNoSchema      = errors.New("no schema provided")
+	ErrInvalidParams = errors.New("invalid params")
 )
 
 type Pager struct {
 	Dialect   string
-	Migration *Migration
+	Migration *migration.Migration
 	Auth      *Auth
+
+	dbConnection *sql.DB
 }
 
 type SessionOptions struct {
@@ -46,21 +38,12 @@ type SessionOptions struct {
 	Origin           string
 	ExpiredInSeconds int64
 }
+
 type Options struct {
 	DbConnection *sql.DB
 	CacheClient  *redis.Client
-	Dialect      string
 	SchemaName   string
 	Session      SessionOptions
-}
-
-var dbConnection *sql.DB
-var mutexDbLock = &sync.Mutex{}
-
-func setDatabaseConnection(db *sql.DB) {
-	mutexDbLock.Lock()
-	dbConnection = db
-	mutexDbLock.Unlock()
 }
 
 type pagerBuilder struct {
@@ -101,17 +84,32 @@ func (p *pagerBuilder) BuildPager() *Pager {
 		tokenStrategy:    p.tokenStrategy,
 		passwordStrategy: p.passwordStrategy,
 	}
-	migrator, err := NewMigration(MigrationOptions{
-		dialect: p.pagerOptions.Dialect,
-		schema:  p.pagerOptions.SchemaName,
+	migrator, err := migration.NewMigration(migration.MigrationOptions{
+		Schema:       p.pagerOptions.SchemaName,
+		DBConnection: p.pagerOptions.DbConnection,
 	})
-	setDatabaseConnection(p.pagerOptions.DbConnection)
-
 	if err != nil {
 		log.Fatal(err)
 	}
-
+	rbac.dbConnection = p.pagerOptions.DbConnection
 	rbac.Migration = migrator
 	rbac.Auth = authModule
 	return rbac
+}
+
+var (
+	once            sync.Once
+	bluePrintSchema *schema.Schema
+)
+
+func (p *Pager) GetBluePrint() *schema.Schema {
+	if p == nil || p.dbConnection == nil {
+		return nil
+	}
+	once.Do(func() {
+		bluePrintSchema = &schema.Schema{
+			DbConnection: p.dbConnection,
+		}
+	})
+	return bluePrintSchema
 }

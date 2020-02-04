@@ -3,6 +3,7 @@ package pager
 import (
 	"context"
 	"errors"
+	schema2 "github.com/dhanarJkusuma/pager/schema"
 	"github.com/go-redis/redis"
 	"net/http"
 	"strconv"
@@ -52,21 +53,21 @@ type Auth struct {
 	passwordStrategy PasswordGenerator
 }
 
-func (a *Auth) Authenticate(params LoginParams) (*User, error) {
-	var loggedUser *User
+func (a *Auth) Authenticate(params LoginParams) (*schema2.User, error) {
+	var loggedUser *schema2.User
 	var err error
 
 	switch a.loginMethod {
 	case LoginEmail:
-		loggedUser, err = FindUser(map[string]interface{}{
+		loggedUser, err = schema2.FindUser(map[string]interface{}{
 			"email": params.Identifier,
 		}, nil)
 	case LoginUsername:
-		loggedUser, err = FindUser(map[string]interface{}{
+		loggedUser, err = schema2.FindUser(map[string]interface{}{
 			"username": params.Identifier,
 		}, nil)
 	case LoginEmailUsername:
-		loggedUser, err = FindUserByUsernameOrEmail(params.Identifier, nil)
+		loggedUser, err = schema2.FindUserByUsernameOrEmail(params.Identifier, nil)
 	}
 	if loggedUser == nil {
 		return nil, ErrInvalidUserLogin
@@ -85,7 +86,7 @@ func (a *Auth) Authenticate(params LoginParams) (*User, error) {
 	return loggedUser, nil
 }
 
-func (a *Auth) SignInWithCookie(w http.ResponseWriter, params LoginParams) (*User, error) {
+func (a *Auth) SignInWithCookie(w http.ResponseWriter, params LoginParams) (*schema2.User, error) {
 	loggedUser, err := a.Authenticate(params)
 	if err != nil {
 		return nil, err
@@ -136,7 +137,7 @@ func (a *Auth) ClearSession(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (a *Auth) SignIn(params LoginParams) (*User, string, error) {
+func (a *Auth) SignIn(params LoginParams) (*schema2.User, string, error) {
 	loggedUser, err := a.Authenticate(params)
 	if err != nil {
 		return nil, "", err
@@ -158,7 +159,7 @@ func (a *Auth) SignIn(params LoginParams) (*User, string, error) {
 
 func (a *Auth) Logout(request *http.Request) error {
 	var err error
-	var user *User
+	var user *schema2.User
 	user = GetUserLogin(request)
 	if user == nil {
 		return ErrInvalidUserLogin
@@ -175,7 +176,7 @@ func (a *Auth) Logout(request *http.Request) error {
 	return nil
 }
 
-func (a *Auth) Register(user *User) error {
+func (a *Auth) Register(user *schema2.User) error {
 	user.Password = a.passwordStrategy.HashPassword(user.Password)
 	return user.CreateUser()
 }
@@ -239,13 +240,13 @@ func (a *Auth) VerifyToken(token string) (int64, error) {
 	return result, nil
 }
 
-func (a *Auth) GetUserByToken(token string) (*User, error) {
+func (a *Auth) GetUserByToken(token string) (*schema2.User, error) {
 	userId, err := a.VerifyToken(token)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := FindUser(map[string]interface{}{
+	user, err := schema2.FindUser(map[string]interface{}{
 		"id": userId,
 	}, nil)
 	if err != nil {
@@ -254,7 +255,7 @@ func (a *Auth) GetUserByToken(token string) (*User, error) {
 	return user, nil
 }
 
-func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*User, error) {
+func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*schema2.User, error) {
 	var token string
 	switch strategy {
 	case CookieBasedAuth:
@@ -277,7 +278,7 @@ func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*User, error) {
 		return nil, ErrValidateCookie
 	}
 
-	user, err := FindUser(map[string]interface{}{
+	user, err := schema2.FindUser(map[string]interface{}{
 		"id": userID,
 	}, nil)
 	if err != nil {
@@ -287,7 +288,7 @@ func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*User, error) {
 	return user, nil
 }
 
-func GetUserLogin(r *http.Request) *User {
+func GetUserLogin(r *http.Request) *schema2.User {
 	ctx := r.Context()
-	return ctx.Value(UserPrinciple).(*User)
+	return ctx.Value(UserPrinciple).(*schema2.User)
 }
