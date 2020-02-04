@@ -159,7 +159,7 @@ func (u *User) Delete() error {
 	return nil
 }
 
-// Delete function will save delete user entity with specific ID and context
+// Delete function will delete user entity with specific ID and context
 // if user has no ID, than error will be returned
 func (u *User) DeleteContext(ctx context.Context) error {
 	if u.DBContract == nil {

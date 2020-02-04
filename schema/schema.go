@@ -1,7 +1,6 @@
 package schema
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"github.com/dhanarJkusuma/pager/repository"
@@ -22,25 +21,6 @@ type existRecord struct {
 var (
 	ErrInvalidID = errors.New("invalid id")
 )
-
-// Fetch represent how we get the user data from database
-type Fetch interface {
-	// user fetcher
-	GetUser(email string) (*User, error)
-	GetUserContext(ctx context.Context, email string) (*User, error)
-	FindUserByUsernameOrEmail(params string) (*User, error)
-	FindUserByUsernameOrEmailContext(ctx context.Context, params string) (*User, error)
-	FindUser(params map[string]interface{}) (*User, error)
-	FindUserContext(ctx context.Context, params map[string]interface{}) (*User, error)
-
-	// permission fetcher
-	GetPermission(name string) (*Permission, error)
-	GetPermissionContext(ctx context.Context, name string) (*Permission, error)
-
-	// role fetcher
-	GetRole(name string) (*Role, error)
-	GetRoleContext(ctx context.Context, name string) (*Role, error)
-}
 
 func (s *Schema) User(userModel *User) *User {
 	if userModel == nil {
@@ -69,9 +49,4 @@ func (s *Schema) Role(roleModel *Role) *Role {
 	}
 	roleModel.DBContract = s.DbConnection
 	return roleModel
-}
-
-func (s *Schema) Fetch() Fetch {
-	f := &fetcher{DbContract: s.DbConnection}
-	return f
 }

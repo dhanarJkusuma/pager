@@ -116,7 +116,7 @@ func (r *Role) SaveContext(ctx context.Context) error {
 
 const deleteRoleQuery = `DELETE FROM rbac_role WHERE id = ?`
 
-// Delete function will save delete role entity with specific ID
+// Delete function will delete role entity with specific ID
 // if role has no ID, than error will be returned
 func (r *Role) Delete() error {
 	if r.DBContract == nil {
@@ -136,7 +136,7 @@ func (r *Role) Delete() error {
 	return nil
 }
 
-// Delete function will save delete role entity with specific ID and context
+// Delete function will delete role entity with specific ID and context
 // if role has no ID, than error will be returned
 func (r *Role) DeleteContext(ctx context.Context) error {
 	if r.DBContract == nil {
@@ -461,7 +461,7 @@ func (r *Role) GetRole(name string) (*Role, error) {
 	return role, nil
 }
 
-// GetRole function will get the role entity by name and context
+// GetRole function will get the role entity by name with specific context
 // This function will fetch the data from database and search by this name
 func (r *Role) GetRoleContext(ctx context.Context, name string) (*Role, error) {
 	if r.DBContract == nil {

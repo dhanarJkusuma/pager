@@ -3,11 +3,12 @@ package schema
 import (
 	"context"
 	"database/sql"
-	"github.com/dhanarJkusuma/pager"
 	"time"
+
+	"github.com/dhanarJkusuma/pager"
 )
 
-// Permission Repository
+// Permission represents `rbac_permission` table in the database
 type Permission struct {
 	Entity
 
@@ -30,6 +31,7 @@ const insertPermissionQuery = `
 	) VALUES (?,?,?,?)
 `
 
+// CreatePermission function will create a new record of permission entity
 func (p *Permission) CreatePermission() error {
 	if p.DBContract == nil {
 		return pager.ErrNoSchema
@@ -48,6 +50,7 @@ func (p *Permission) CreatePermission() error {
 	return nil
 }
 
+// CreatePermissionContext function will create a new record of permission entity with specific context
 func (p *Permission) CreatePermissionContext(ctx context.Context) error {
 	if p.DBContract == nil {
 		return pager.ErrNoSchema
@@ -68,12 +71,83 @@ func (p *Permission) CreatePermissionContext(ctx context.Context) error {
 	return nil
 }
 
-const deletePermissionQuery = `DELETE FROM rbac_permission WHERE id = ?`
+const savePermissionQuery = `
+	INSERT INTO rbac_user (
+		name,
+		method,
+		route,
+		description
+	) VALUES (?, ?, ?, ?) ON DUPLICATE KEY 
+	UPDATE name = ?, method = ?, route = ?, description = ?
+`
 
-func (p *Permission) DeletePermission() error {
+// Save function will save updated permission entity
+// if permission record already exist in the database, it will be updated
+// otherwise it will create a new one
+func (p *Permission) Save() error {
 	if p.DBContract == nil {
 		return pager.ErrNoSchema
 	}
+
+	result, err := p.DBContract.Exec(
+		savePermissionQuery,
+		p.Name,
+		p.Method,
+		p.Route,
+		p.Description,
+		p.Name,
+		p.Method,
+		p.Route,
+		p.Description,
+	)
+	if err != nil {
+		return err
+	}
+
+	p.ID, _ = result.LastInsertId()
+	return nil
+}
+
+// Save function will save updated user permission with specific context
+// if user permission already exist in the database, it will be updated
+// otherwise it will create a new one
+func (p *Permission) SaveContext(ctx context.Context) error {
+	if p.DBContract == nil {
+		return pager.ErrNoSchema
+	}
+
+	result, err := p.DBContract.ExecContext(
+		ctx,
+		savePermissionQuery,
+		p.Name,
+		p.Method,
+		p.Route,
+		p.Description,
+		p.Name,
+		p.Method,
+		p.Route,
+		p.Description,
+	)
+	if err != nil {
+		return err
+	}
+
+	p.ID, _ = result.LastInsertId()
+	return nil
+}
+
+const deletePermissionQuery = `DELETE FROM rbac_permission WHERE id = ?`
+
+// Delete function will delete permission entity with specific ID
+// if permission has no ID, than error will be returned
+func (p *Permission) Delete() error {
+	if p.DBContract == nil {
+		return pager.ErrNoSchema
+	}
+	if p.ID <= 0 {
+		return ErrInvalidID
+	}
+
 	_, err := p.DBContract.Exec(
 		deletePermissionQuery,
 		p.ID,
@@ -84,10 +158,16 @@ func (p *Permission) DeletePermission() error {
 	return nil
 }
 
-func (p *Permission) DeletePermissionWithContext(ctx context.Context) error {
+// Delete function will delete permission entity with specific ID and context
+// if permission has no ID, than error will be returned
+func (p *Permission) DeleteContext(ctx context.Context) error {
 	if p.DBContract == nil {
 		return pager.ErrNoSchema
 	}
+	if p.ID <= 0 {
+		return ErrInvalidID
+	}
+
 	_, err := p.DBContract.ExecContext(
 		ctx,
 		deletePermissionQuery,
@@ -109,6 +189,8 @@ const fetchPermissionQuery = `
 	FROM rbac_permission WHERE name = ?
 `
 
+// GetPermission function will get the permission entity by name
+// This function will fetch the data from database and search by this name
 func (p *Permission) GetPermission(name string) (*Permission, error) {
 	if p.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -127,6 +209,8 @@ func (p *Permission) GetPermission(name string) (*Permission, error) {
 	return permission, nil
 }
 
+// GetPermission function will get the permission entity by name with specific context
+// This function will fetch the data from database and search by this name
 func (p *Permission) GetPermissionContext(ctx context.Context, name string) (*Permission, error) {
 	if p.DBContract == nil {
 		return nil, pager.ErrNoSchema
