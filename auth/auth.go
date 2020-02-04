@@ -2,15 +2,16 @@ package auth
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"github.com/dhanarJkusuma/pager"
-	"github.com/dhanarJkusuma/pager/schema"
-	"github.com/go-redis/redis"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/go-redis/redis"
+
+	"github.com/dhanarJkusuma/pager"
+	"github.com/dhanarJkusuma/pager/schema"
 )
 
 var (
@@ -45,8 +46,7 @@ const (
 )
 
 type Auth struct {
-	sessionName string
-
+	sessionName      string
 	cacheClient      *redis.Client
 	loginMethod      LoginMethod
 	expiredInSeconds int64
@@ -228,6 +228,8 @@ func (a *Auth) Register(user *schema.User) error {
 	return userSchema.CreateUser()
 }
 
+/* HTTP Protection */
+
 func (a *Auth) ProtectRoute(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		user, err := a.getUserPrinciple(r, CookieBasedAuth)
@@ -267,11 +269,11 @@ func (a *Auth) ProtectWithRBAC(next http.Handler) http.Handler {
 			return
 		}
 
-		if !user.CanAccess(r.Method, r.URL.Path) {
+		isAllowed, err := a.dbSchema.User(user).CanAccess(r.Method, r.URL.Path)
+		if err != nil || !isAllowed {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	})
 }
@@ -293,9 +295,9 @@ func (a *Auth) GetUserByToken(token string) (*schema.User, error) {
 		return nil, err
 	}
 
-	user, err := schema.FindUser(map[string]interface{}{
+	user, err := a.dbSchema.User(nil).FindUser(map[string]interface{}{
 		"id": userId,
-	}, nil)
+	})
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
@@ -306,7 +308,7 @@ func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*schema.User, er
 	var token string
 	switch strategy {
 	case CookieBasedAuth:
-		cookieData, err := r.Cookie(a.SessionName)
+		cookieData, err := r.Cookie(a.sessionName)
 		if err != nil {
 			return nil, ErrInvalidCookie
 		}
@@ -324,10 +326,9 @@ func (a *Auth) getUserPrinciple(r *http.Request, strategy int) (*schema.User, er
 	if err != nil {
 		return nil, ErrValidateCookie
 	}
-
-	user, err := schema.FindUser(map[string]interface{}{
+	user, err := a.dbSchema.User(nil).FindUser(map[string]interface{}{
 		"id": userID,
-	}, nil)
+	})
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
