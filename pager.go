@@ -3,11 +3,11 @@ package pager
 import (
 	"database/sql"
 	"errors"
+	"github.com/dhanarJkusuma/pager/auth"
 	"github.com/dhanarJkusuma/pager/migration"
 	"github.com/dhanarJkusuma/pager/schema"
 	"github.com/go-redis/redis"
 	"log"
-	"sync"
 )
 
 type AuthManager interface {
@@ -25,15 +25,14 @@ var (
 )
 
 type Pager struct {
-	Dialect   string
 	Migration *migration.Migration
-	Auth      *Auth
+	Auth      *auth.Auth
 
-	dbConnection *sql.DB
+	pagerSchema *schema.Schema
 }
 
 type SessionOptions struct {
-	LoginMethod      LoginMethod
+	LoginMethod      auth.LoginMethod
 	SessionName      string
 	Origin           string
 	ExpiredInSeconds int64
@@ -74,16 +73,23 @@ func (p *pagerBuilder) SetPasswordGenerator(generator PasswordGenerator) *pagerB
 }
 
 func (p *pagerBuilder) BuildPager() *Pager {
-	rbac := &Pager{}
-	authModule := &Auth{
-		SessionName:      p.pagerOptions.Session.SessionName,
-		origin:           p.pagerOptions.Session.Origin,
-		expiredInSeconds: p.pagerOptions.Session.ExpiredInSeconds,
-		loginMethod:      p.pagerOptions.Session.LoginMethod,
-		cacheClient:      p.pagerOptions.CacheClient,
-		tokenStrategy:    p.tokenStrategy,
-		passwordStrategy: p.passwordStrategy,
+	rbac := &Pager{
+		pagerSchema: &schema.Schema{DbConnection: p.pagerOptions.DbConnection},
 	}
+
+	// initialize auth module
+	authModule := auth.NewAuth(auth.Options{
+		SessionName:  p.pagerOptions.Session.SessionName,
+		GuardSchema:  rbac.pagerSchema,
+		CacheClient:  p.pagerOptions.CacheClient,
+		LoginMethod:  p.pagerOptions.Session.LoginMethod,
+		ExpiredInSec: p.pagerOptions.Session.ExpiredInSeconds,
+
+		TokenStrategy:    p.tokenStrategy,
+		PasswordStrategy: p.passwordStrategy,
+	})
+
+	// initialize migration module
 	migrator, err := migration.NewMigration(migration.MigrationOptions{
 		Schema:       p.pagerOptions.SchemaName,
 		DBConnection: p.pagerOptions.DbConnection,
@@ -91,25 +97,13 @@ func (p *pagerBuilder) BuildPager() *Pager {
 	if err != nil {
 		log.Fatal(err)
 	}
-	rbac.dbConnection = p.pagerOptions.DbConnection
+
+	// set migration and auth module
 	rbac.Migration = migrator
 	rbac.Auth = authModule
 	return rbac
 }
 
-var (
-	once            sync.Once
-	bluePrintSchema *schema.Schema
-)
-
-func (p *Pager) GetBluePrint() *schema.Schema {
-	if p == nil || p.dbConnection == nil {
-		return nil
-	}
-	once.Do(func() {
-		bluePrintSchema = &schema.Schema{
-			DbConnection: p.dbConnection,
-		}
-	})
-	return bluePrintSchema
+func (p *Pager) GetSchema() *schema.Schema {
+	return p.pagerSchema
 }

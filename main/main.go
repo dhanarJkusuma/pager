@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/dhanarJkusuma/pager"
+	"github.com/dhanarJkusuma/pager/auth"
 	"github.com/go-redis/redis"
 	_ "github.com/go-sql-driver/mysql"
 	"time"
@@ -49,7 +50,7 @@ func generateAuth(options *authOptions) *pager.Pager {
 		SchemaName:   options.schema,
 		Session: pager.SessionOptions{
 			Origin:           options.origin,
-			LoginMethod:      pager.LoginEmail,
+			LoginMethod:      auth.LoginEmail,
 			ExpiredInSeconds: int64(24 * time.Hour),
 			SessionName:      "_Quiz_App",
 		},

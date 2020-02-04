@@ -437,7 +437,7 @@ const fetchRoleQuery = `
 `
 
 // GetRole function will get the role entity by name
-// This function will fetch the data from database and search by this name
+// This function will fetch the data from database and search by name
 func (r *Role) GetRole(name string) (*Role, error) {
 	if r.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -462,7 +462,7 @@ func (r *Role) GetRole(name string) (*Role, error) {
 }
 
 // GetRole function will get the role entity by name with specific context
-// This function will fetch the data from database and search by this name
+// This function will fetch the data from database and search by name
 func (r *Role) GetRoleContext(ctx context.Context, name string) (*Role, error) {
 	if r.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -484,4 +484,99 @@ func (r *Role) GetRoleContext(ctx context.Context, name string) (*Role, error) {
 		return nil, err
 	}
 	return role, nil
+}
+
+const fetchRolesResourceQuery = `
+	SELECT 
+		r.id,
+		r.name,
+		r.created_at,
+		r.updated_at
+	FROM rbac_role r
+	JOIN rbac_role_permission rp ON rp.role_id = r.id
+	JOIN rbac_permission p ON p.id = rp.permission_id
+	JOIN rbac_user_role ur ON ur.role_id = r.id
+	WHERE ur.user_id = ? AND p.method = ?  AND p.route = ?
+`
+
+// GetRolesResource function will return a collection of roles that associated with user, method, and route
+// This function will fetch the data from database and search by user_id, method, and route
+func (r *Role) GetRolesResource(user *User, method, route string) ([]Role, error) {
+	if r.DBContract == nil {
+		return nil, pager.ErrNoSchema
+	}
+
+	if user == nil || user.ID <= 0 {
+		return nil, ErrInvalidID
+	}
+
+	var role Role
+	role.DBContract = r.DBContract
+	roles := make([]Role, 0)
+	result, err := r.DBContract.Query(fetchRolesResourceQuery, user.ID, method, route)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return roles, nil
+		}
+		return nil, err
+	}
+	for result.Next() {
+		err := result.Scan(
+			&role.ID,
+			&role.Name,
+			&role.Description,
+			&role.CreatedAt,
+			&role.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, nil
+}
+
+// GetRolesResource function will return a collection of roles that associated with user, method, and route
+// This function will fetch the data from database and search by user_id, method, and route
+func (r *Role) GetRolesResourceContext(ctx context.Context, user *User, method, route string) ([]Role, error) {
+	if r.DBContract == nil {
+		return nil, pager.ErrNoSchema
+	}
+
+	if user == nil || user.ID <= 0 {
+		return nil, ErrInvalidID
+	}
+
+	var role Role
+	role.DBContract = r.DBContract
+	roles := make([]Role, 0)
+	result, err := r.DBContract.QueryContext(
+		ctx,
+		fetchRolesResourceQuery,
+		user.ID,
+		method,
+		route,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return roles, nil
+		}
+		return nil, err
+	}
+	for result.Next() {
+		err := result.Scan(
+			&role.ID,
+			&role.Name,
+			&role.Description,
+			&role.CreatedAt,
+			&role.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		roles = append(roles, role)
+	}
+
+	return roles, nil
 }
