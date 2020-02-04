@@ -51,7 +51,7 @@ func (u *User) CreateUser() error {
 	return nil
 }
 
-// CreateUserWithContext function will create a new record of user entity with context
+// CreateUserWithContext function will create a new record of user entity with specific context
 func (u *User) CreateUserContext(ctx context.Context) error {
 	if u.DBContract == nil {
 		return pager.ErrNoSchema
@@ -109,7 +109,7 @@ func (u *User) Save() error {
 	return nil
 }
 
-// Save function will save updated user entity with context
+// Save function will save updated user entity with specific context
 // if user record already exist in the database, it will be updated
 // otherwise it will create a new one
 func (u *User) SaveContext(ctx context.Context) error {
@@ -145,6 +145,10 @@ func (u *User) Delete() error {
 		return pager.ErrNoSchema
 	}
 
+	if u.ID <= 0 {
+		return ErrInvalidID
+	}
+
 	_, err := u.DBContract.Exec(
 		deleteUserQuery,
 		u.ID,
@@ -161,6 +165,11 @@ func (u *User) DeleteContext(ctx context.Context) error {
 	if u.DBContract == nil {
 		return pager.ErrNoSchema
 	}
+
+	if u.ID <= 0 {
+		return ErrInvalidID
+	}
+
 	_, err := u.DBContract.ExecContext(
 		ctx,
 		deleteUserQuery,
@@ -219,7 +228,7 @@ func (u *User) CanAccessContext(ctx context.Context, method, path string) (bool,
 const getUserPermissionQuery = `
 	SELECT EXISTS(
 		SELECT 
-			COUNT(1) as count
+			*
 		FROM rbac_user_role ur 
 		JOIN rbac_role_permission rp ON ur.role_id = rp.role_id
 		JOIN rbac_permission p ON p.id = rp. permission_id 
@@ -262,7 +271,7 @@ func (u *User) HasPermissionContext(ctx context.Context, permissionName string) 
 const getUserRoleQuery = `
 	SELECT EXISTS(
 		SELECT 
-			COUNT(1) as count
+			*
 		FROM rbac_user_role ur 
 		JOIN rbac_role r ON ur.role_id = r.id 
 		WHERE ur.user_id = ? AND r.name = ? 

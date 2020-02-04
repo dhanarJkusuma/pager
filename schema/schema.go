@@ -3,6 +3,7 @@ package schema
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"github.com/dhanarJkusuma/pager/repository"
 )
 
@@ -17,6 +18,10 @@ type Entity struct {
 type existRecord struct {
 	IsExist bool `db:"is_exist"`
 }
+
+var (
+	ErrInvalidID = errors.New("invalid id")
+)
 
 // Fetch represent how we get the user data from database
 type Fetch interface {

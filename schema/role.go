@@ -3,13 +3,15 @@ package schema
 import (
 	"context"
 	"database/sql"
-	"github.com/dhanarJkusuma/pager"
 	"time"
+
+	"github.com/dhanarJkusuma/pager"
 )
 
-// Role Repository
+// Role represents `rbac_role` table in the database
 type Role struct {
 	Entity
+
 	ID          int64  `db:"id" json:"id"`
 	Name        string `db:"name" json:"name"`
 	Description string `db:"description" json:"description"`
@@ -25,6 +27,7 @@ const insertRoleQuery = `
 	) VALUES (?,?)
 `
 
+// CreateRole function will create a new record of role entity
 func (r *Role) CreateRole() error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
@@ -42,6 +45,7 @@ func (r *Role) CreateRole() error {
 	return nil
 }
 
+// CreateRoleContext function will create a new record of role entity with specific context
 func (r *Role) CreateRoleContext(ctx context.Context) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
@@ -60,11 +64,67 @@ func (r *Role) CreateRoleContext(ctx context.Context) error {
 	return nil
 }
 
-const deleteRoleQuery = `DELETE FROM rbac_role WHERE id = ?`
+const saveRoleQuery = `
+	INSERT INTO rbac_role (
+		name,
+		description
+	) VALUES (?, ?) ON DUPLICATE KEY UPDATE name = ?, description = ?
+`
 
-func (r *Role) DeleteRole() error {
+// Save function will save updated role entity
+// if role record already exist in the database, it will be updated
+// otherwise it will create a new one
+func (r *Role) Save() error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
+	}
+
+	result, err := r.DBContract.Exec(
+		saveRoleQuery,
+		r.Name,
+		r.Description,
+	)
+	if err != nil {
+		return err
+	}
+
+	r.ID, _ = result.LastInsertId()
+	return nil
+}
+
+// Save function will save updated role entity with specific context
+// if role record already exist in the database, it will be updated
+// otherwise it will create a new one
+func (r *Role) SaveContext(ctx context.Context) error {
+	if r.DBContract == nil {
+		return pager.ErrNoSchema
+	}
+
+	result, err := r.DBContract.ExecContext(
+		ctx,
+		saveRoleQuery,
+		r.Name,
+		r.Description,
+	)
+	if err != nil {
+		return err
+	}
+
+	r.ID, _ = result.LastInsertId()
+	return nil
+}
+
+const deleteRoleQuery = `DELETE FROM rbac_role WHERE id = ?`
+
+// Delete function will save delete role entity with specific ID
+// if role has no ID, than error will be returned
+func (r *Role) Delete() error {
+	if r.DBContract == nil {
+		return pager.ErrNoSchema
+	}
+
+	if r.ID <= 0 {
+		return ErrInvalidID
 	}
 	_, err := r.DBContract.Exec(
 		deleteRoleQuery,
@@ -76,9 +136,14 @@ func (r *Role) DeleteRole() error {
 	return nil
 }
 
-func (r *Role) DeleteRoleContext(ctx context.Context) error {
+// Delete function will save delete role entity with specific ID and context
+// if role has no ID, than error will be returned
+func (r *Role) DeleteContext(ctx context.Context) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
+	}
+	if r.ID <= 0 {
+		return ErrInvalidID
 	}
 	_, err := r.DBContract.ExecContext(
 		ctx,
@@ -98,9 +163,14 @@ const assignRoleQuery = `
 	) VALUES (?,?)
 `
 
+// Assign function will assign the role to the specific user
+// This function will create a new record in the database to create relation between user and role
 func (r *Role) Assign(u *User) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
+	}
+	if r.ID <= 0 || u.ID <= 0 {
+		return ErrInvalidID
 	}
 
 	_, err := r.DBContract.Exec(
@@ -114,9 +184,14 @@ func (r *Role) Assign(u *User) error {
 	return nil
 }
 
+// AssignContext function will assign the role to the specific user and specific context
+// This function will create a new record in the database to create relation between user and role
 func (r *Role) AssignContext(ctx context.Context, u *User) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
+	}
+	if r.ID <= 0 || u.ID <= 0 {
+		return ErrInvalidID
 	}
 
 	_, err := r.DBContract.ExecContext(
@@ -133,9 +208,14 @@ func (r *Role) AssignContext(ctx context.Context, u *User) error {
 
 const revokeRoleQuery = `DELETE FROM rbac_user_role WHERE role_id = ? AND user_id = ?`
 
+// Revoke function will revoke user's role by specific userID
+// This function will delete the relation between user and role
 func (r *Role) Revoke(u *User) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
+	}
+	if r.ID <= 0 || u.ID <= 0 {
+		return ErrInvalidID
 	}
 
 	_, err := r.DBContract.Exec(
@@ -150,10 +230,16 @@ func (r *Role) Revoke(u *User) error {
 	return nil
 }
 
+// RevokeContext function will revoke user's role by specific userID and specific context
+// This function will delete the relation between user and role
 func (r *Role) RevokeContext(ctx context.Context, u *User) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
 	}
+	if r.ID <= 0 || u.ID <= 0 {
+		return ErrInvalidID
+	}
+
 	_, err := r.DBContract.ExecContext(
 		ctx,
 		revokeRoleQuery,
@@ -174,9 +260,14 @@ const addPermissionQuery = `
 	) VALUES (?,?)
 `
 
+// AddPermission function will create a new relation between role with specific permission
+// This function will create a new record in the table relation between role and permission
 func (r *Role) AddPermission(p *Permission) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
+	}
+	if r.ID <= 0 || p.ID <= 0 {
+		return ErrInvalidID
 	}
 
 	_, err := r.DBContract.Exec(
@@ -190,6 +281,8 @@ func (r *Role) AddPermission(p *Permission) error {
 	return nil
 }
 
+// AddPermissionContext function will create a new relation between role with specific permission and specific context
+// This function will create a new record in the table relation between role and permission
 func (r *Role) AddPermissionContext(ctx context.Context, p *Permission) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
@@ -208,9 +301,14 @@ func (r *Role) AddPermissionContext(ctx context.Context, p *Permission) error {
 
 const removePermissionQuery = `DELETE FROM rbac_role_permission WHERE role_id = ? AND permission_id = ?`
 
+// RemovePermission function will delete relation between role with specific permission
+// This function will delete relation data record in the table relation between role and permission
 func (r *Role) RemovePermission(p *Permission) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
+	}
+	if r.ID <= 0 || p.ID <= 0 {
+		return ErrInvalidID
 	}
 
 	_, err := r.DBContract.Exec(
@@ -224,10 +322,16 @@ func (r *Role) RemovePermission(p *Permission) error {
 	return nil
 }
 
+// RemovePermissionContext function will delete relation between role with specific permission and specific context
+// This function will delete relation data record in the table relation between role and permission
 func (r *Role) RemovePermissionContext(ctx context.Context, p *Permission) error {
 	if r.DBContract == nil {
 		return pager.ErrNoSchema
 	}
+	if r.ID <= 0 || p.ID <= 0 {
+		return ErrInvalidID
+	}
+
 	_, err := r.DBContract.ExecContext(
 		ctx,
 		removePermissionQuery,
@@ -246,12 +350,16 @@ const getPermissionQuery = `
 		p.name,
 		p.method,
 		p.route,
-		p.description
-	FROM rbac_role_permission rp
-	JOIN rbac_permission p WHERE rp.role_id = ?
+		p.description,
+		p.created_at,
+		p.updated_at
+	FROM rbac_permission p
+	JOIN rbac_role_permission rp ON rp.permission_id = p.id   
+	WHERE rp.role_id = ?
 `
 
-func (r *Role) GetPermission() ([]Permission, error) {
+// GetPermissions function will return the permission collection by specific role
+func (r *Role) GetPermissions() ([]Permission, error) {
 	if r.DBContract == nil {
 		return nil, pager.ErrNoSchema
 	}
@@ -269,7 +377,15 @@ func (r *Role) GetPermission() ([]Permission, error) {
 	permission.DBContract = r.DBContract
 
 	for result.Next() {
-		err = result.Scan(&permission.ID, &permission.Name, &permission.Method, &permission.Route, &permission.Description)
+		err = result.Scan(
+			&permission.ID,
+			&permission.Name,
+			&permission.Method,
+			&permission.Route,
+			&permission.Description,
+			&permission.CreatedAt,
+			&permission.UpdatedAt,
+		)
 		if err == nil {
 			permissions = append(permissions, permission)
 		}
@@ -277,7 +393,8 @@ func (r *Role) GetPermission() ([]Permission, error) {
 	return permissions, nil
 }
 
-func (r *Role) GetPermissionContext(ctx context.Context) ([]Permission, error) {
+// GetPermissions function will return the permission collection by specific role and context
+func (r *Role) GetPermissionsContext(ctx context.Context) ([]Permission, error) {
 	if r.DBContract == nil {
 		return nil, pager.ErrNoSchema
 	}
@@ -293,7 +410,15 @@ func (r *Role) GetPermissionContext(ctx context.Context) ([]Permission, error) {
 
 	var permission Permission
 	for result.Next() {
-		err = result.Scan(&permission.ID, &permission.Name, &permission.Method, &permission.Route, &permission.Description)
+		err = result.Scan(
+			&permission.ID,
+			&permission.Name,
+			&permission.Method,
+			&permission.Route,
+			&permission.Description,
+			&permission.CreatedAt,
+			&permission.UpdatedAt,
+		)
 		if err == nil {
 			permissions = append(permissions, permission)
 		}
@@ -305,10 +430,14 @@ const fetchRoleQuery = `
 	SELECT
 		id,
 		name,
-		description 
+		description,
+		created_at,	
+		updated_at
 	FROM rbac_role WHERE name = ?
 `
 
+// GetRole function will get the role entity by name
+// This function will fetch the data from database and search by this name
 func (r *Role) GetRole(name string) (*Role, error) {
 	if r.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -316,7 +445,13 @@ func (r *Role) GetRole(name string) (*Role, error) {
 
 	var role = new(Role)
 	result := r.DBContract.QueryRow(fetchRoleQuery, name)
-	err := result.Scan(&role.ID, &role.Name, &role.Description)
+	err := result.Scan(
+		&role.ID,
+		&role.Name,
+		&role.Description,
+		&role.CreatedAt,
+		&role.UpdatedAt,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -326,6 +461,8 @@ func (r *Role) GetRole(name string) (*Role, error) {
 	return role, nil
 }
 
+// GetRole function will get the role entity by name and context
+// This function will fetch the data from database and search by this name
 func (r *Role) GetRoleContext(ctx context.Context, name string) (*Role, error) {
 	if r.DBContract == nil {
 		return nil, pager.ErrNoSchema
@@ -333,7 +470,13 @@ func (r *Role) GetRoleContext(ctx context.Context, name string) (*Role, error) {
 
 	var role = new(Role)
 	result := r.DBContract.QueryRowContext(ctx, fetchRoleQuery, name)
-	err := result.Scan(&role.ID, &role.Name, &role.Description)
+	err := result.Scan(
+		&role.ID,
+		&role.Name,
+		&role.Description,
+		&role.CreatedAt,
+		&role.UpdatedAt,
+	)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
